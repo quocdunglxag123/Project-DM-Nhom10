@@ -84,7 +84,6 @@ summary(df.train)
 ```{r}
 df.train = na.omit(df.train)
 df.test = na.omit(df.test)
-?cor()
 ```
 
 ```{r}
@@ -136,7 +135,9 @@ ggplot(data = df.train, mapping=aes(x=px_height, y=price_range)) +
 
 2. Machine Learning¶
 2.1. Decision tree:
+
 ```{r}
+set.seed(1)
 #Xây dựng mô hình cây quyết định
 library(rpart)
 library(rpart.plot)
@@ -144,16 +145,19 @@ fit <- rpart(price_range~., data = df.train, method = 'class')
 fit
 ```
 ```{r}
+#vẽ cây quyết định dựa trên mô hình đã xây dựng
 rpart.plot(fit, extra = 106)
 ```
 ```{r}
 #Dự đoán dựa trên tập test
 predict_unseen <-predict(fit, df.test, type = 'class')
+# Tạo một bảng để đếm số lượng giá được phân loại
 table_mat <- table(df.test$price_range, predict_unseen)
 table_mat
 ```
 
 ```{r}
+
 #Tính độ chính xác của mô hình bằng confusion matrix:
 accuracy_Test <- sum(diag(table_mat)) / sum(table_mat)
 print(paste('Accuracy for test', accuracy_Test))
@@ -200,13 +204,13 @@ data.frame(
 Tiếp theo, sử dụng Support Vector Machine. Đối với các biến x ,sẽ sử dụng 3 giá trị có tương quan cao nhất với phạm vi giá đó là: ram, năng lượng pin và chiều cao px.
 ```{r}
 set.seed(1)
-
+?svm()
 svm <- svm(price_range~ram+battery_power+px_height, data=df.train, cost=10)
 
 # Root Mean Squared Error (SVM)
 predict_svm_train <- predict(svm, df.train)
 sqrt(mean(df.train$price_range - predict_svm_train)^2)
-
+?predict()
 predict_svm_test <- predict(svm, df.test)  
 sqrt(mean(df.test$price_range - predict_svm_test)^2)
 
