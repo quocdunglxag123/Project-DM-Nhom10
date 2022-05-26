@@ -1,12 +1,11 @@
 # Đề tài: Prediction Mobile
-## Thành viên tham gia Project
+## Thành viên tham gia Project + Công Việc
 - Lý Quốc Dũng - 19133015 - 19133015@student.hcmute.edu.vn - EDA + Mô Hình
 - Nguyễn Quốc Bảo - 19133002- 19133038@student.hcmute.edu.vn- EDA + Mô Hình
 - Đoàn Trần Đăng Khoa - 19133028 - 19133028@student.hcmute.edu.vn - EDA + Mô Hình
 - Võ Hoàng Khả Diệu - 19133014 - 19133014@student.hcmute.edu.vn- EDA + Mô Hình + Mối tương quan
 
-## Công Việc
-## Tổng Quan Đề Tài
+# Tổng Quan Đề Tài
 - Nguồn: https://www.kaggle.com/datasets/iabhishekofficial/mobile-price-classification?datasetId=11167
 - Các Cột:  
 Id: mã của điện thoại;
