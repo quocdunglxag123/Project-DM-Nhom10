@@ -1,0 +1,309 @@
+---
+title: "Mobile Price"
+author: "Nhom10"
+date: '2022-04-11'
+output: html_document
+---
+Phần 1: Giới Thiệu
+Đề tài phân tích và dự đoán giá điện thoại
+Nguồn Dữ Liệu:
+link: https://www.kaggle.com/datasets/iabhishekofficial/mobile-price-classification?datasetId=11167
+tập dữ liệu: train.csv, test.csv
+Giới thiệu sơ lược về dữ liệu 
+
+Bộ dữ liệu gồm 21 cột và 2000 dòng :
++Id
++battery_power: Tổng năng lượng pin có thể lưu trữ
++blue: Có bluetooth hay không
++clock_speed:tốc độ mà bộ vi xử lý thực hiện các lệnh
++dual_sim: có hỗ trợ hai sim hay không
++fc: Độ phân giải camera trước
++four_g: có 4g hay không
++int_memory: dung lượng bộ nhớ trong
++m_dep: độ dày điện thoại
++mobile_wt: độ nặng điện thoại
++n_cores:Số lõi của bộ xử lý
++pc: Độ phân giải camera sau
++px_height: chiều cao của độ phân giải màn hình
++px_width: chiều rộng của độ phân giải màn hình
++ram: Dung lượng của Ram
++sc_h: chiều cao màn hình
++sc_w: chiều rộng màn hình
++talk_time: thời gian dài nhất khi sạc điện thoại
++three_g: có 3g hay không
++touch_screen: có màn hình cảm ứng hay không
++wifi: có wifi hay không
++price_range: khoảng giá trị chi phí điện thoại (0,1,2,3)
+
+Kế Hoạch Phân Tích Dữ Liệu
++ Biến dự đoán: price_range
++ Biến sử dụng để dự đoán: các biến còn lại
+
+Phần 2: Dữ Liệu
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(rpart)
+library(rpart.plot)
+library(rattle)
+library(tree)
+library('class')
+library(corrplot)
+library(RColorBrewer)
+library(e1071)
+library(plotly)
+library(rsample)
+```
+
+
+
+```{r}
+df <- read.csv('C:/Users/quocd/OneDrive/Desktop/hellofile/datamining/train.csv')
+df.split <- rsample::initial_split(
+    df,
+    prop=0.75, # 75% training, 25% testing 
+    strata=price_range)
+
+df.train <- rsample::training(df.split)
+df.test <- rsample::testing(df.split)
+```
+
+```{r}
+head(df.train)
+```
+
+```{r}
+dim(df.train)
+
+```
+
+```{r}
+summary(df.train)
+```
+
+```{r}
+df.train = na.omit(df.train)
+df.test = na.omit(df.test)
+?cor()
+```
+
+```{r}
+duplicated(df.train)
+duplicated(df.test)
+```
+
+```{r}
+cor(df.train)
+
+```
+
+```{r}
+corrplot(cor(df.train), type='upper', order='hclust', col=brewer.pal(n=8, name="RdYlBu"))
+
+corrplot(cor(df.train), method = "number",
+           type = "upper",
+           tl.cex = 0.8,
+           tl.srt = 40,
+           tl.col = "red")
+```
+Từ hình dung ma trận tương quan này, thấy rằng 2 đặc điểm có tương quan cao nhất là: "price_range" và "ram"
+
+Liên quan đến price_range (biến dùng dự đoán), ta cũng có thể thấy rằng "pin_power" và "px_height" đều có tương quan nhẹ với "price_range"
+
+```{r}
+ggplot(data = df.train, mapping=aes(x=ram, y=price_range)) +
+    geom_smooth(se=FALSE, color='darkgreen', method='gam', formula = y ~ s(x, bs = "cs")) + 
+    ggtitle('Ram v. Price Range: +90% correlation') +
+    theme(plot.title = element_text(face="bold")) + 
+    labs(x = 'Ram', y='Price Range')
+```
+
+```{r}
+ggplot(data = df.train, mapping=aes(x=battery_power, y=price_range)) +
+    geom_smooth(se=FALSE, color='darkblue', method='gam', formula = y ~ s(x, bs = "cs")) +
+    ggtitle('Battery Power v. Price Range: +20% correlation') +
+    theme(plot.title = element_text(face="bold")) +
+    labs(x = 'Battery Power', y='Price Range')
+```
+
+```{r}
+ggplot(data = df.train, mapping=aes(x=px_height, y=price_range)) +
+    geom_smooth(se=FALSE, color='red', method='gam', formula = y ~ s(x, bs = "cs")) +
+    ggtitle('Pixel Height v. Price Range: ~15% correlation') +
+    theme(plot.title = element_text(face="bold")) +
+    labs(x = 'Pixel Height', y='Price Range')
+```
+
+2. Machine Learning¶
+2.1. Decision tree:
+```{r}
+#Xây dựng mô hình cây quyết định
+library(rpart)
+library(rpart.plot)
+fit <- rpart(price_range~., data = df.train, method = 'class')
+fit
+```
+```{r}
+rpart.plot(fit, extra = 106)
+```
+```{r}
+#Dự đoán dựa trên tập test
+predict_unseen <-predict(fit, df.test, type = 'class')
+table_mat <- table(df.test$price_range, predict_unseen)
+table_mat
+```
+
+```{r}
+#Tính độ chính xác của mô hình bằng confusion matrix:
+accuracy_Test <- sum(diag(table_mat)) / sum(table_mat)
+print(paste('Accuracy for test', accuracy_Test))
+```
+
+2.2. KNN: K-Nearest Neighbors
+```{r}
+library(tidyverse) 
+library(gridExtra)
+library(caret)
+
+# hyperparameter and model adjustment by Cross Validation method
+ctrl <- trainControl(method = "cv", number = 10)
+
+set.seed(1)
+knn <- train(
+  price_range ~ ram + battery_power + px_height,
+  data = df.train,
+  method = 'knn',
+  trControl = ctrl,
+  tuneGrid = expand.grid(k = seq(1, 15, by = 1))
+)
+knn
+```
+```{r}
+df.test$predictions <-  predict(knn, df.test)
+data.frame(
+  RMSE = RMSE(df.test$predictions, df.test$price_range),
+  MSE = RMSE(df.test$predictions, df.test$price_range)**2,
+  Rsquare = R2(df.test$predictions, df.test$price_range)
+)
+
+```
+```{r}
+df.train$predictions <-  predict(knn, df.train)
+data.frame(
+  RMSE = RMSE(df.train$predictions, df.train$price_range),
+  MSE = RMSE(df.train$predictions, df.train$price_range)**2,
+  Rsquare = R2(df.train$predictions, df.train$price_range)
+)
+```
+
+2.3. SVM: Support Vector Machine
+Tiếp theo, sử dụng Support Vector Machine. Đối với các biến x ,sẽ sử dụng 3 giá trị có tương quan cao nhất với phạm vi giá đó là: ram, năng lượng pin và chiều cao px.
+```{r}
+set.seed(1)
+
+svm <- svm(price_range~ram+battery_power+px_height, data=df.train, cost=10)
+
+# Root Mean Squared Error (SVM)
+predict_svm_train <- predict(svm, df.train)
+sqrt(mean(df.train$price_range - predict_svm_train)^2)
+
+predict_svm_test <- predict(svm, df.test)  
+sqrt(mean(df.test$price_range - predict_svm_test)^2)
+
+```
+```{r}
+
+# Mean Squared Error (SVM)
+predict_svm_train_2 <- predict(svm, df.train)
+mean(df.train$price_range - predict_svm_train_2)^2
+
+predict_svm_test_2 <- predict(svm, df.test)  
+mean(df.test$price_range - predict_svm_test_2)^2
+```
+
+Đầu tiên,  thấy rằng sai số của Nhóm là trong phạm vi phần nghìn (cực kỳ nhỏ).Nhóm đang phân loại điện thoại di động thành các khoảng giá sau: 0, 1, 2 và 3. Do đó,Nhóm có thể kết luận rằng lỗi của mô hình là cực kỳ nhỏ và mô hình hoạt động rất tốt.
+
+2.4. Linear Regression
+Bây giờ,Nhóm sẽ thử tiếp với Linear Regression để thử và dự đoán phạm vi giá. Đầu tiên, nhóm sẽ chỉ sử dụng biến tương quan nhất với phạm vi giá là ram
+```{r}
+set.seed(1)
+lr.fit = lm(price_range~ram, data=df.train)
+summary(lr.fit)
+```
+Kết quả của Nhóm từ mô hình Linear Regression là khá tốt - biến có ý nghĩa thống kê (như mong đợi), ngoài ra, giá trị R-squared là 0,84 (84%)
+
+Việc thêm pin_power (biến tương quan thứ hai với phạm vi giá) vào có cải thiện mô hình của không?
+```{r}
+set.seed(1)
+
+lr.fit2 = lm(price_range~ram+battery_power, data=df.train)
+summary(lr.fit2)
+```
+nó cải thiện mô hình của nhóm! nhóm có thể cải thiện mô hình của mình hơn nữa bằng cách thêm biến tương quan thứ ba vào phạm vi giá (px_height) không?
+```{r}
+set.seed(1)
+lr.fit3 = lm(price_range~ram+battery_power+px_height, data=df.train)
+summary(lr.fit3)
+```
+
+Nhóm nhận được giá trị R-squared là 0,91, tỷ lệ này là 91% (trên 100). Kết quả này rất tốt và nó có nghĩa là Mô hình Linear Regression của nhóm đã hoạt động rất tốt.
+
+
+Bây giờ, nhóm sẽ tính toán RMSE và MSE cho Mô hình Linear Regression.
+```{r}
+# Root Mean Squared Error (LR)
+predict_lr.fit3_train <- predict(lr.fit3, df.train)
+sqrt(mean(df.train$price_range - predict_lr.fit3_train)^2)
+
+predict_lr.fit3_test <- predict(lr.fit3, df.test)  
+sqrt(mean(df.test$price_range - predict_lr.fit3_test)^2)
+
+# Mean Squared Error (LR)
+predict_lr.fit3_train_2 <- predict(lr.fit3, df.train)
+mean(df.train$price_range - predict_lr.fit3_train_2)^2
+
+predict_lr.fit3_test_2 <- predict(lr.fit3, df.test)  
+mean(df.test$price_range - predict_lr.fit3_test_2)^2
+```
+Từ kết quả RMSE và MSE của Nhóm, thấy rằng Mô hình Linear Regression của Nhóm hoạt động rất tốt, tương tự như Mô hình SVM của Nhóm.
+
+nhóm đang sử dụng mô hình hồi quy cho một bài toán phân loại. Tại sao điều này hoạt động? Vì biến y của chúng ta sẽ là 0, 1, 2 hoặc 3 nên mô hình của nhóm coi nó như thể nó là hồi quy và chạy. Hơn nữa, nó hoạt động tốt vì nó đánh giá 4 danh mục nhóm (ở trên) dưới dạng các biến định lượng (không phải định tính) và sử dụng Linear Regression để tìm khoảng giá tối ưu cho mỗi quan sát, sau đó được phân loại thành 0, 1, 2 hoặc 3.
+
+hình ảnh 3D bao gồm ram, battery power, pixel height, được tô màu theo dự đoán của Linear Regression về giá là 0, 1, 2 hoặc 3.
+```{r}
+fig <- plot_ly(
+    df.train,
+    x=~df.train$ram,
+    y=~df.train$battery_power,
+    z=~df.train$px_height,
+    color=predict_lr.fit3_train,
+    type='scatter3d',
+    mode='markers')
+
+fig <- fig %>% layout(
+title='Ram x Battery Power x Pixel Height',
+    scene=list(
+    xaxis=list(title='Ram'),
+    yaxis=list(title='Battery Power'),
+    zaxis=list(title='Pixel Height')
+    ))
+fig
+```
+Từ mô hình 3D, Nhóm có thể thấy một cách trực quan từng biến số đóng góp vào giá của một chiếc Điện thoại di động như thế nào.
+
+*Tổng Kết:
+Mô hình nào tốt hơn: Decision tree, SVM , Linear Regression, KNN?
+Từ kết quả, Nhóm thấy rằng các giá trị của Mô hình Linear Regression cho RMSE và MSE tương ứng nhỏ hơn các giá trị RMSE và MSE cho Mô hình SVM và KNN, Decision tree
+
+Vì vậy, Mô hình Linear Regression hoạt động tốt hơn mô hình SVM ,KNN
+
+Giải quyết câu hỏi trọng tâm của Nhóm: Tính năng nào quan trọng nhất trong việc dự đoán Giá điện thoại di động?
+Đầu tiên, nhìn vào ma trận tương quan, Nhóm thấy rằng ram là biến có tương quan nhất với phạm vi giá, năng lượng pin là biến có tương quan nhiều thứ hai với phạm vi giá và chiều cao px là biến tương quan thứ ba với phạm vi giá.
+
+Bây giờ, nhìn vào phần tóm tắt của Mô hình Linear Regression, thấy rằng cả 3 biến (ram, battery power, pixel height) đều có t-values rất cao, nghĩa là chúng đều rất quan trọng trong việc dự đoán biến y của nhóm. Cụ thể, ram có t-values cao nhất, battery power có t-values cao thứ hai và pixel height có t-values cao thứ ba. "Thứ tự của tầm quan trọng thay đổi" này trực tiếp tương ứng với những phát hiện của nhóm từ ma trận tương quan của chúng tôi ở trên!
+
+Tóm lại, các tính năng quan trọng nhất trong việc dự đoán giá của một chiếc Điện thoại di động là ram, battery power, pixel height.
+
+
+
+
