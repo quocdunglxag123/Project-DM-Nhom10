@@ -88,7 +88,7 @@ df.test = na.omit(df.test)
 ```
 
 ```{r}
-duplicated(df.train)
+anyDuplicated((df.train))
 duplicated(df.test)
 ```
 
