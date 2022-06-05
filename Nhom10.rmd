@@ -69,13 +69,17 @@ df.test <- rsample::testing(df.split)
 
 ```
 
-```{r}
-head(df.train)
-```
+
 
 ```{r}
 dim(df.train)
 
+```
+```{r}
+head(df.train,3)
+```
+```{r}
+tail(df.train, 3)
 ```
 
 ```{r}
@@ -92,11 +96,16 @@ anyDuplicated((df.train))
 duplicated(df.test)
 ```
 
+
 ```{r}
 cor(df.train)
 
 ```
-
+```{r}
+df %>% ggplot(aes(x =price_range)) + 
+  geom_bar() +
+  theme_bw() + theme_classic()
+```
 ```{r}
 corrplot(cor(df.train), type='upper', order='hclust', col=brewer.pal(n=8, name="RdYlBu"))
 
